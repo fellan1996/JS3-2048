@@ -46,6 +46,18 @@ function App() {
         innerDiv.style.backgroundColor = "#f59563";
         break;
 
+      case 32:
+        innerDiv.style.backgroundColor = "#f67c5f";
+        break;
+
+      case 64:
+        innerDiv.style.backgroundColor = "#f65e3b";
+        break;
+
+      case 128:
+        innerDiv.style.backgroundColor = "#edcf72";
+        break;
+
       default:
         console.log("whoa, easy there tiger");
         break;
@@ -55,8 +67,7 @@ function App() {
   const [indexesToUpdate, setIndexesToUpdate] = useState(() =>
     generateRandomIndices(9)
   );
-  const [numOfMovesToBeMade, setNumOfMovesToBeMade] = useState([]);
-  const fasterUpdatingNumOfMovesToBeMade = useRef([]);
+  const numOfMovesToBeMade = useRef([]);
   const board = useRef(null);
   const handleKeyDown = (event) => {
     if (event.key === "ArrowRight") {
@@ -85,11 +96,10 @@ function App() {
   const shiftToTheRight = () => {
     const gridItems = board.current.querySelectorAll(".grid-item");
     const innerDivs = document.querySelectorAll(".grid-item > div");
-    calculateNumOfMovesToBeMade();
+    calculateNumOfMovesToBeMade("right");
     const atleastOneTileWillMove =
-      fasterUpdatingNumOfMovesToBeMade.current.filter(
-        (numOfMoves) => numOfMoves === 0
-      ).length < 16;
+      numOfMovesToBeMade.current.filter((numOfMoves) => numOfMoves === 0)
+        .length < 16;
     if (atleastOneTileWillMove) {
       innerDivs.forEach((innerDiv, index) => {
         const innerDivWidth = innerDiv.offsetWidth;
@@ -97,8 +107,7 @@ function App() {
         const prevParentIndex = parseInt(
           innerDiv.parentElement.getAttribute("data-key")
         );
-        const amountOfSteps =
-          fasterUpdatingNumOfMovesToBeMade.current[prevParentIndex];
+        const amountOfSteps = numOfMovesToBeMade.current[prevParentIndex];
         const nextParentIndex = prevParentIndex + amountOfSteps;
         innerDiv.style.transform = `translateX(${
           translateValue * amountOfSteps
@@ -133,97 +142,108 @@ function App() {
 
         innerDiv.addEventListener("transitionend", onTransitionEnd);
       });
-    }else console.log("no movement");
-    // const newIndexes = getNewIndexPositions();
-    // setIndexesToUpdate(newIndexes);
+    } else console.log("no movement needed");
   };
 
-  const calculateNumOfMovesToBeMade = () => {
+  const calculateNumOfMovesToBeMade = (leftOrRight) => {
+
+    let start, end, step, isCountingDown;
+    if(leftOrRight === "right") {
+      //count down
+      isCountingDown = true;
+      start = 3;
+      end = 0;
+      step = -1;
+    }else if(leftOrRight === "left") {
+      //count up
+      isCountingDown = false;
+      start = 0;
+      end = 3;
+      step = 1;
+    }
     const numOfStepsToMoveForEachPosition = [];
 
-    //indexesToUpdate is also needed. The loop gives values to the array above.
-    console.log(indexesToUpdate, fasterUpdatingIndexesToUpdate.current);
-    for (let i = 3; i >= 0; i--) {
-      let numOfFilledSlotsToTheRight = [];
-      for (let j = 3; j >= 0; j--) {
+    for (let i = start; (isCountingDown ? i >= end : i <= end); i += step) {
+      let numOfFilledSlotsBlockingThePath = [];
+      for (let j = start; (isCountingDown ? j >= end : j <= end); j += step) {
         let alreadyAdded = 0;
         let steps = -1;
         fasterUpdatingIndexesToUpdate.current.forEach((indexAndValue) => {
           const [index, value] = indexAndValue.split(".").map(Number);
           if (index === i * 4 + j) {
             switch (j) {
-              case 3:
+              case start:
                 steps = 0;
                 alreadyAdded++;
-                numOfFilledSlotsToTheRight.unshift(value);
+                numOfFilledSlotsBlockingThePath.unshift(value);
                 break;
 
-              case 2:
+              case start + step:
                 if (
-                  numOfFilledSlotsToTheRight.length === 1 &&
-                  numOfFilledSlotsToTheRight[0] !== value
+                  numOfFilledSlotsBlockingThePath.length === 1 &&
+                  numOfFilledSlotsBlockingThePath[0] !== value
                 ) {
                   steps = 0;
                   alreadyAdded++;
-                  numOfFilledSlotsToTheRight.unshift(value);
+                  numOfFilledSlotsBlockingThePath.unshift(value);
                 } else {
                   steps = 1;
                   alreadyAdded++;
-                  if (numOfFilledSlotsToTheRight.length === 0) {
-                    numOfFilledSlotsToTheRight.unshift(value);
+                  if (numOfFilledSlotsBlockingThePath.length === 0) {
+                    numOfFilledSlotsBlockingThePath.unshift(value);
                   } else {
-                    numOfFilledSlotsToTheRight[0] = value * 2 + 0.1;
+                    numOfFilledSlotsBlockingThePath[0] = value * 2 + 0.1;
                   }
                 }
                 break;
 
-              case 1:
-                if (numOfFilledSlotsToTheRight.length === 2) {
-                  if (numOfFilledSlotsToTheRight[0] !== value) {
+              case start + step + step:
+                if (numOfFilledSlotsBlockingThePath.length === 2) {
+                  if (numOfFilledSlotsBlockingThePath[0] !== value) {
                     steps = 0;
                     alreadyAdded++;
-                    numOfFilledSlotsToTheRight.unshift(value);
+                    numOfFilledSlotsBlockingThePath.unshift(value);
                   } else {
                     steps = 1;
                     alreadyAdded++;
-                    numOfFilledSlotsToTheRight[0] = value * 2 + 0.1;
+                    numOfFilledSlotsBlockingThePath[0] = value * 2 + 0.1;
                   }
-                } else if (numOfFilledSlotsToTheRight.length === 1) {
-                  if (numOfFilledSlotsToTheRight[0] !== value) {
+                } else if (numOfFilledSlotsBlockingThePath.length === 1) {
+                  if (numOfFilledSlotsBlockingThePath[0] !== value) {
                     steps = 1;
                     alreadyAdded++;
-                    numOfFilledSlotsToTheRight.unshift(value);
+                    numOfFilledSlotsBlockingThePath.unshift(value);
                   } else {
                     steps = 2;
                     alreadyAdded++;
-                    numOfFilledSlotsToTheRight[0] = value * 2 + 0.1;
+                    numOfFilledSlotsBlockingThePath[0] = value * 2 + 0.1;
                   }
                 } else {
                   steps = 2;
                   alreadyAdded++;
-                  numOfFilledSlotsToTheRight.unshift(value);
+                  numOfFilledSlotsBlockingThePath.unshift(value);
                 }
                 break;
 
-              case 0:
-                if (numOfFilledSlotsToTheRight.length === 3) {
-                  if (numOfFilledSlotsToTheRight[0] !== value) {
+              case end:
+                if (numOfFilledSlotsBlockingThePath.length === 3) {
+                  if (numOfFilledSlotsBlockingThePath[0] !== value) {
                     steps = 0;
                     alreadyAdded++;
                   } else {
                     steps = 1;
                     alreadyAdded++;
                   }
-                } else if (numOfFilledSlotsToTheRight.length === 2) {
-                  if (numOfFilledSlotsToTheRight[0] === value) {
+                } else if (numOfFilledSlotsBlockingThePath.length === 2) {
+                  if (numOfFilledSlotsBlockingThePath[0] === value) {
                     steps = 2;
                     alreadyAdded++;
                   } else {
                     steps = 1;
                     alreadyAdded++;
                   }
-                } else if (numOfFilledSlotsToTheRight.length === 1) {
-                  if (numOfFilledSlotsToTheRight[0] === value) {
+                } else if (numOfFilledSlotsBlockingThePath.length === 1) {
+                  if (numOfFilledSlotsBlockingThePath[0] === value) {
                     steps = 3;
                     alreadyAdded++;
                   } else {
@@ -251,10 +271,7 @@ function App() {
         numOfStepsToMoveForEachPosition.unshift(steps);
       }
     }
-    fasterUpdatingNumOfMovesToBeMade.current = [
-      ...numOfStepsToMoveForEachPosition,
-    ];
-    setNumOfMovesToBeMade([...numOfStepsToMoveForEachPosition]);
+    numOfMovesToBeMade.current = [...numOfStepsToMoveForEachPosition];
     //testing to see if something went wrong
     if (numOfStepsToMoveForEachPosition.length === 16) {
       console.log("all might be well");
