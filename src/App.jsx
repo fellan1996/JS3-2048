@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 function App() {
-  const hasEffectRun = useRef(false);
-  const fasterUpdatingIndexesToUpdate = useRef(null);
+  const fasterUpdatingIndexesToUpdate = useRef(new Set([]));
 
-  const generateRandomIndices = () => {
-    const indices = new Set();
-
-    while (indices.size < 4) {
+  const generateRandomIndices = (amountOfNewNumbers) => {
+    const indices = new Set([...fasterUpdatingIndexesToUpdate.current]);
+    while (
+      indices.size <
+      fasterUpdatingIndexesToUpdate.current.size + amountOfNewNumbers
+    ) {
       const randomIndex = Math.floor(Math.random() * 16);
       const randomValue = Math.ceil(Math.random() * 2) * 2;
       const newString = `${randomIndex}.${randomValue}`;
@@ -24,7 +25,6 @@ function App() {
       }
     }
     fasterUpdatingIndexesToUpdate.current = indices;
-
     return indices;
   };
 
@@ -53,7 +53,7 @@ function App() {
   };
 
   const [indexesToUpdate, setIndexesToUpdate] = useState(() =>
-    generateRandomIndices()
+    generateRandomIndices(9)
   );
   const [numOfMovesToBeMade, setNumOfMovesToBeMade] = useState([]);
   const fasterUpdatingNumOfMovesToBeMade = useRef([]);
@@ -67,35 +67,18 @@ function App() {
   const getNewIndexPositions = () => {
     const indices = new Set();
     const gridItems = board.current.querySelectorAll(".grid-item");
-    const filteredGridItems = Array.from(gridItems).filter(node => {
-      console.log(Array.from(node.childNodes).length);
+    const filteredGridItems = Array.from(gridItems).filter((node) => {
       if (Array.from(node.childNodes).length > 0) return true;
       return false;
-    })
-    const innerDivs = document.querySelectorAll(".grid-item > div");
-    innerDivs.forEach((innerDiv) => {
-      const index = innerDiv.parentElement.getAttribute("data-key");
-      const value = innerDiv.value;
+    });
+    filteredGridItems.forEach((gridItemWithChild) => {
+      const index = gridItemWithChild.getAttribute("data-key");
+      const value = gridItemWithChild.textContent;
       indices.add(index + "." + value);
     });
 
-    while (indices.size < 4) {
-      const randomIndex = Math.floor(Math.random() * 16);
-      const randomValue = Math.ceil(Math.random() * 2) * 2;
-      const newString = `${randomIndex}.${randomValue}`;
-
-      // Check if the number before the dot is already present in the Set
-      const isUnique = Array.from(indices).every(
-        (item) => parseInt(item.split(".")[0]) !== randomIndex
-      );
-
-      // If unique, add to the Set
-      if (isUnique) {
-        indices.add(newString);
-      }
-    }
     fasterUpdatingIndexesToUpdate.current = indices;
-    debugger
+    generateRandomIndices(1);
     return indices;
   };
 
@@ -103,50 +86,54 @@ function App() {
     const gridItems = board.current.querySelectorAll(".grid-item");
     const innerDivs = document.querySelectorAll(".grid-item > div");
     calculateNumOfMovesToBeMade();
-    innerDivs.forEach((innerDiv, index) => {
-      const innerDivWidth = innerDiv.offsetWidth;
-      const translateValue = innerDivWidth + 10;
-      const prevParentIndex = parseInt(
-        innerDiv.parentElement.getAttribute("data-key")
-      );
-      const amountOfSteps2 = numOfMovesToBeMade[prevParentIndex];
-      const amountOfSteps =
-        fasterUpdatingNumOfMovesToBeMade.current[prevParentIndex];
+    const atleastOneTileWillMove =
+      fasterUpdatingNumOfMovesToBeMade.current.filter(
+        (numOfMoves) => numOfMoves === 0
+      ).length < 16;
+    if (atleastOneTileWillMove) {
+      innerDivs.forEach((innerDiv, index) => {
+        const innerDivWidth = innerDiv.offsetWidth;
+        const translateValue = innerDivWidth + 10;
+        const prevParentIndex = parseInt(
+          innerDiv.parentElement.getAttribute("data-key")
+        );
+        const amountOfSteps =
+          fasterUpdatingNumOfMovesToBeMade.current[prevParentIndex];
+        const nextParentIndex = prevParentIndex + amountOfSteps;
+        innerDiv.style.transform = `translateX(${
+          translateValue * amountOfSteps
+        }px)`;
+        const onTransitionEnd = () => {
+          const slot = gridItems[nextParentIndex];
+          slot.appendChild(innerDiv);
+          innerDiv.style.transform = "";
+          const children = slot.querySelectorAll("div");
+          if (children.length === 2) {
+          } else if (children.length > 2) {
+            console.error("it shouldn't be more than two");
+          }
+          if (index === innerDivs.length - 1) {
+            gridItems.forEach((gridItem, index) => {
+              if (gridItem.children.length === 2) {
+                const firstChild = gridItem.children[0];
+                const secondChild = gridItem.children[1];
+                secondChild.value = secondChild.value + firstChild.value;
+                if (secondChild.value !== firstChild.value * 2)
+                  console.warn("whyy?");
+                gridItem.removeChild(firstChild);
+                secondChild.innerHTML = secondChild.value;
+                giveCorrectBackgroundColor(secondChild, secondChild.value);
+              }
+            });
+            getNewIndexPositions();
+            setIndexesToUpdate(fasterUpdatingIndexesToUpdate.current);
+          }
+          innerDiv.removeEventListener("transitionend", onTransitionEnd);
+        };
 
-      const nextParentIndex = prevParentIndex + amountOfSteps;
-      innerDiv.style.transform = `translateX(${
-        translateValue * amountOfSteps
-      }px)`;
-      const onTransitionEnd = () => {
-        const slot = gridItems[nextParentIndex];
-        slot.appendChild(innerDiv);
-        innerDiv.style.transform = "";
-        const children = slot.querySelectorAll("div");
-        if (children.length === 2) {
-        } else if (children.length > 2) {
-          console.error("it shouldn't be more than two");
-        }
-        if (index === innerDivs.length - 1 && !hasEffectRun.current) {
-          hasEffectRun.current = true;
-          gridItems.forEach((gridItem, index) => {
-            if (gridItem.children.length === 2) {
-              const firstChild = gridItem.children[0];
-              const secondChild = gridItem.children[1];
-              secondChild.value = secondChild.value + firstChild.value;
-              if (secondChild.value !== firstChild.value * 2)
-                console.warn("whyy?");
-              gridItem.removeChild(firstChild);
-              secondChild.innerHTML = secondChild.value;
-              giveCorrectBackgroundColor(secondChild, secondChild.value);
-            }
-          });
-        }
-        getNewIndexPositions();
-        innerDiv.removeEventListener("transitionend", onTransitionEnd);
-      }
-
-      innerDiv.addEventListener("transitionend", onTransitionEnd);
-    });
+        innerDiv.addEventListener("transitionend", onTransitionEnd);
+      });
+    }else console.log("no movement");
     // const newIndexes = getNewIndexPositions();
     // setIndexesToUpdate(newIndexes);
   };
@@ -156,7 +143,6 @@ function App() {
 
     //indexesToUpdate is also needed. The loop gives values to the array above.
     console.log(indexesToUpdate, fasterUpdatingIndexesToUpdate.current);
-    debugger
     for (let i = 3; i >= 0; i--) {
       let numOfFilledSlotsToTheRight = [];
       for (let j = 3; j >= 0; j--) {
@@ -284,8 +270,6 @@ function App() {
       item.style.transform = "none";
     });
 
-    // calculateNumOfMovesToBeMade();
-
     //creates an innerDiv for each filled slot
     //gridItems is also needed so that the innerDivs are appended to the correct grid-item
     indexesToUpdate.forEach((indexAndValue) => {
@@ -301,7 +285,7 @@ function App() {
       innerDiv.style.transition = "transform 0.5s ease";
       gridItems[index].appendChild(innerDiv);
     });
-  }, []);
+  }, [indexesToUpdate]);
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => {
