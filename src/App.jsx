@@ -73,6 +73,9 @@ function App() {
     if (event.key === "ArrowRight") {
       shiftToTheRight();
     }
+    if (event.key === "ArrowLeft") {
+      shiftToTheLeft();
+    }
   };
 
   const getNewIndexPositions = () => {
@@ -93,6 +96,57 @@ function App() {
     return indices;
   };
 
+  const shiftToTheLeft = () => {
+    const gridItems = board.current.querySelectorAll(".grid-item");
+    const innerDivs = document.querySelectorAll(".grid-item > div");
+    calculateNumOfMovesToBeMade("left");
+    const atleastOneTileWillMove =
+      numOfMovesToBeMade.current.filter((numOfMoves) => numOfMoves === 0)
+        .length < 16;
+    if (atleastOneTileWillMove) {
+      innerDivs.forEach((innerDiv, index) => {
+        const innerDivWidth = innerDiv.offsetWidth;
+        const translateValue = innerDivWidth + 10;
+        const prevParentIndex = parseInt(
+          innerDiv.parentElement.getAttribute("data-key")
+        );
+        const amountOfSteps = numOfMovesToBeMade.current[prevParentIndex];
+        const nextParentIndex = prevParentIndex - amountOfSteps;
+        innerDiv.style.transform = `translateX(-${
+          translateValue * amountOfSteps
+        }px)`;
+        const onTransitionEnd = () => {
+          const slot = gridItems[nextParentIndex];
+          slot.appendChild(innerDiv);
+          innerDiv.style.transform = "";
+          const children = slot.querySelectorAll("div");
+          if (children.length === 2) {
+          } else if (children.length > 2) {
+            console.error("it shouldn't be more than two");
+          }
+          if (index === innerDivs.length - 1) {
+            gridItems.forEach((gridItem, index) => {
+              if (gridItem.children.length === 2) {
+                const firstChild = gridItem.children[0];
+                const secondChild = gridItem.children[1];
+                secondChild.value = secondChild.value + firstChild.value;
+                if (secondChild.value !== firstChild.value * 2)
+                  console.warn("whyy?");
+                gridItem.removeChild(firstChild);
+                secondChild.innerHTML = secondChild.value;
+                giveCorrectBackgroundColor(secondChild, secondChild.value);
+              }
+            });
+            getNewIndexPositions();
+            setIndexesToUpdate(fasterUpdatingIndexesToUpdate.current);
+          }
+          innerDiv.removeEventListener("transitionend", onTransitionEnd);
+        };
+
+        innerDiv.addEventListener("transitionend", onTransitionEnd);
+      });
+    } else console.log("no movement needed");
+  };
   const shiftToTheRight = () => {
     const gridItems = board.current.querySelectorAll(".grid-item");
     const innerDivs = document.querySelectorAll(".grid-item > div");
@@ -166,11 +220,12 @@ function App() {
     for (let i = start; (isCountingDown ? i >= end : i <= end); i += step) {
       let numOfFilledSlotsBlockingThePath = [];
       for (let j = start; (isCountingDown ? j >= end : j <= end); j += step) {
+        const currIndex = i * 4 + j;
         let alreadyAdded = 0;
         let steps = -1;
         fasterUpdatingIndexesToUpdate.current.forEach((indexAndValue) => {
           const [index, value] = indexAndValue.split(".").map(Number);
-          if (index === i * 4 + j) {
+          if (index === currIndex) {
             switch (j) {
               case start:
                 steps = 0;
@@ -268,7 +323,11 @@ function App() {
         } else {
           console.error("this shouldn't happen");
         }
-        numOfStepsToMoveForEachPosition.unshift(steps);
+        if(isCountingDown) {
+          numOfStepsToMoveForEachPosition.unshift(steps);
+        }else {
+          numOfStepsToMoveForEachPosition.push(steps);
+        }
       }
     }
     numOfMovesToBeMade.current = [...numOfStepsToMoveForEachPosition];
