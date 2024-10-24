@@ -71,10 +71,10 @@ function App() {
   const board = useRef(null);
   const handleKeyDown = (event) => {
     if (event.key === "ArrowRight") {
-      shiftToTheRight();
+      shiftToTheLeftOrRight("right");
     }
     if (event.key === "ArrowLeft") {
-      shiftToTheLeft();
+      shiftToTheLeftOrRight("left");
     }
   };
 
@@ -96,10 +96,17 @@ function App() {
     return indices;
   };
 
-  const shiftToTheLeft = () => {
+  const shiftToTheLeftOrRight = (leftOrRight) => {
+    let shiftingToTheRight = false;
+    let shiftingToTheLeft = false;
+    if (leftOrRight === "right") {
+      shiftingToTheRight = true;
+    } else if (leftOrRight === "left") {
+      shiftingToTheLeft = true;
+    }
     const gridItems = board.current.querySelectorAll(".grid-item");
     const innerDivs = document.querySelectorAll(".grid-item > div");
-    calculateNumOfMovesToBeMade("left");
+    calculateNumOfMovesToBeMade(leftOrRight);
     const atleastOneTileWillMove =
       numOfMovesToBeMade.current.filter((numOfMoves) => numOfMoves === 0)
         .length < 16;
@@ -111,59 +118,11 @@ function App() {
           innerDiv.parentElement.getAttribute("data-key")
         );
         const amountOfSteps = numOfMovesToBeMade.current[prevParentIndex];
-        const nextParentIndex = prevParentIndex - amountOfSteps;
-        innerDiv.style.transform = `translateX(-${
-          translateValue * amountOfSteps
-        }px)`;
-        const onTransitionEnd = () => {
-          const slot = gridItems[nextParentIndex];
-          slot.appendChild(innerDiv);
-          innerDiv.style.transform = "";
-          const children = slot.querySelectorAll("div");
-          if (children.length === 2) {
-          } else if (children.length > 2) {
-            console.error("it shouldn't be more than two");
-          }
-          if (index === innerDivs.length - 1) {
-            gridItems.forEach((gridItem, index) => {
-              if (gridItem.children.length === 2) {
-                const firstChild = gridItem.children[0];
-                const secondChild = gridItem.children[1];
-                secondChild.value = secondChild.value + firstChild.value;
-                if (secondChild.value !== firstChild.value * 2)
-                  console.warn("whyy?");
-                gridItem.removeChild(firstChild);
-                secondChild.innerHTML = secondChild.value;
-                giveCorrectBackgroundColor(secondChild, secondChild.value);
-              }
-            });
-            getNewIndexPositions();
-            setIndexesToUpdate(fasterUpdatingIndexesToUpdate.current);
-          }
-          innerDiv.removeEventListener("transitionend", onTransitionEnd);
-        };
-
-        innerDiv.addEventListener("transitionend", onTransitionEnd);
-      });
-    } else console.log("no movement needed");
-  };
-  const shiftToTheRight = () => {
-    const gridItems = board.current.querySelectorAll(".grid-item");
-    const innerDivs = document.querySelectorAll(".grid-item > div");
-    calculateNumOfMovesToBeMade("right");
-    const atleastOneTileWillMove =
-      numOfMovesToBeMade.current.filter((numOfMoves) => numOfMoves === 0)
-        .length < 16;
-    if (atleastOneTileWillMove) {
-      innerDivs.forEach((innerDiv, index) => {
-        const innerDivWidth = innerDiv.offsetWidth;
-        const translateValue = innerDivWidth + 10;
-        const prevParentIndex = parseInt(
-          innerDiv.parentElement.getAttribute("data-key")
-        );
-        const amountOfSteps = numOfMovesToBeMade.current[prevParentIndex];
-        const nextParentIndex = prevParentIndex + amountOfSteps;
-        innerDiv.style.transform = `translateX(${
+        const nextParentIndex = shiftingToTheRight
+          ? prevParentIndex + amountOfSteps
+          : prevParentIndex - amountOfSteps;
+          const addOrSubtract = shiftingToTheRight ? "" : "-";
+        innerDiv.style.transform = `translateX(${addOrSubtract}${
           translateValue * amountOfSteps
         }px)`;
         const onTransitionEnd = () => {
@@ -200,15 +159,14 @@ function App() {
   };
 
   const calculateNumOfMovesToBeMade = (leftOrRight) => {
-
     let start, end, step, isCountingDown;
-    if(leftOrRight === "right") {
+    if (leftOrRight === "right") {
       //count down
       isCountingDown = true;
       start = 3;
       end = 0;
       step = -1;
-    }else if(leftOrRight === "left") {
+    } else if (leftOrRight === "left") {
       //count up
       isCountingDown = false;
       start = 0;
@@ -217,9 +175,9 @@ function App() {
     }
     const numOfStepsToMoveForEachPosition = [];
 
-    for (let i = start; (isCountingDown ? i >= end : i <= end); i += step) {
+    for (let i = start; isCountingDown ? i >= end : i <= end; i += step) {
       let numOfFilledSlotsBlockingThePath = [];
-      for (let j = start; (isCountingDown ? j >= end : j <= end); j += step) {
+      for (let j = start; isCountingDown ? j >= end : j <= end; j += step) {
         const currIndex = i * 4 + j;
         let alreadyAdded = 0;
         let steps = -1;
@@ -323,9 +281,9 @@ function App() {
         } else {
           console.error("this shouldn't happen");
         }
-        if(isCountingDown) {
+        if (isCountingDown) {
           numOfStepsToMoveForEachPosition.unshift(steps);
-        }else {
+        } else {
           numOfStepsToMoveForEachPosition.push(steps);
         }
       }
