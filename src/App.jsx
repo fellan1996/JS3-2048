@@ -58,6 +58,26 @@ function App() {
         innerDiv.style.backgroundColor = "#edcf72";
         break;
 
+      case 256:
+        innerDiv.style.backgroundColor = "#edcc61";
+        innerDiv.style.boxShadow = "0 0 30px 10px rgba(243, 215, 116, 0.31746), inset 0 0 0 1px rgba(255, 255, 255, 0.19048)";
+        break;
+
+      case 512:
+        innerDiv.style.backgroundColor = "#edc850";
+        innerDiv.style.boxShadow = "0 0 30px 10px rgba(243, 215, 116, 0.39683), inset 0 0 0 1px rgba(255, 255, 255, 0.2381)";
+        break;
+
+      case 1024:
+        innerDiv.style.backgroundColor = "#edc53f";
+        innerDiv.style.boxShadow = "0 0 30px 10px rgba(243, 215, 116, 0.47619), inset 0 0 0 1px rgba(255, 255, 255, 0.28571)";
+        break;
+
+      case 2048:
+        innerDiv.style.backgroundColor = "#f6d258";
+        innerDiv.style.boxShadow = "0 0 10px 10px rgba(243, 215, 116, 0.47619), inset 0 0 0 2px rgba(255, 255, 255, 0.28571)";
+        break;
+
       default:
         console.log("whoa, easy there tiger");
         break;
@@ -75,6 +95,12 @@ function App() {
     }
     if (event.key === "ArrowLeft") {
       shiftToTheLeftOrRight("left");
+    }
+    if (event.key === "ArrowUp") {
+      shiftToTheLeftOrRight("up");
+    }
+    if (event.key === "ArrowDown") {
+      shiftToTheLeftOrRight("down");
     }
   };
 
@@ -96,17 +122,23 @@ function App() {
     return indices;
   };
 
-  const shiftToTheLeftOrRight = (leftOrRight) => {
+  const shiftToTheLeftOrRight = (direction) => {
     let shiftingToTheRight = false;
     let shiftingToTheLeft = false;
-    if (leftOrRight === "right") {
+    let shiftingUp = false;
+    let shiftingDown = false;
+    if (direction === "right") {
       shiftingToTheRight = true;
-    } else if (leftOrRight === "left") {
+    } else if (direction === "left") {
       shiftingToTheLeft = true;
+    } else if (direction === "up") {
+      shiftingUp = true;
+    } else if (direction === "down") {
+      shiftingDown = true;
     }
     const gridItems = board.current.querySelectorAll(".grid-item");
     const innerDivs = document.querySelectorAll(".grid-item > div");
-    calculateNumOfMovesToBeMade(leftOrRight);
+    calculateNumOfMovesToBeMade(direction);
     const atleastOneTileWillMove =
       numOfMovesToBeMade.current.filter((numOfMoves) => numOfMoves === 0)
         .length < 16;
@@ -120,9 +152,16 @@ function App() {
         const amountOfSteps = numOfMovesToBeMade.current[prevParentIndex];
         const nextParentIndex = shiftingToTheRight
           ? prevParentIndex + amountOfSteps
-          : prevParentIndex - amountOfSteps;
-          const addOrSubtract = shiftingToTheRight ? "" : "-";
-        innerDiv.style.transform = `translateX(${addOrSubtract}${
+          : shiftingToTheLeft
+          ? prevParentIndex - amountOfSteps
+          : shiftingDown
+          ? prevParentIndex + 4 * amountOfSteps
+          : shiftingUp
+          ? prevParentIndex - 4 * amountOfSteps
+          : -1;
+        const addOrSubtract = shiftingToTheRight || shiftingDown ? "" : "-";
+        const xOrY = shiftingDown || shiftingUp ? "Y" : "X";
+        innerDiv.style.transform = `translate${xOrY}(${addOrSubtract}${
           translateValue * amountOfSteps
         }px)`;
         const onTransitionEnd = () => {
@@ -132,10 +171,10 @@ function App() {
           const children = slot.querySelectorAll("div");
           if (children.length === 2) {
           } else if (children.length > 2) {
-            console.error("it shouldn't be more than two");
+            console.warn("it shouldn't be more than two but sometimes it is");
           }
           if (index === innerDivs.length - 1) {
-            gridItems.forEach((gridItem, index) => {
+            gridItems.forEach(gridItem => {
               if (gridItem.children.length === 2) {
                 const firstChild = gridItem.children[0];
                 const secondChild = gridItem.children[1];
@@ -158,35 +197,46 @@ function App() {
     } else console.log("no movement needed");
   };
 
-  const calculateNumOfMovesToBeMade = (leftOrRight) => {
+  const calculateNumOfMovesToBeMade = (direction) => {
     let start, end, step, isCountingDown;
-    if (leftOrRight === "right") {
-      //count down
+    if (direction === "right") {
       isCountingDown = true;
       start = 3;
       end = 0;
       step = -1;
-    } else if (leftOrRight === "left") {
-      //count up
+    } else if (direction === "left") {
+      isCountingDown = false;
+      start = 0;
+      end = 3;
+      step = 1;
+    } else if (direction === "down") {
+      isCountingDown = true;
+      start = 3;
+      end = 0;
+      step = -1;
+    } else if (direction === "up") {
       isCountingDown = false;
       start = 0;
       end = 3;
       step = 1;
     }
-    const numOfStepsToMoveForEachPosition = [];
+    const numOfStepsToMoveForEachPosition = new Array(16).fill(0);
 
     for (let i = start; isCountingDown ? i >= end : i <= end; i += step) {
       let numOfFilledSlotsBlockingThePath = [];
       for (let j = start; isCountingDown ? j >= end : j <= end; j += step) {
-        const currIndex = i * 4 + j;
+        const shiftingLeftOrRight =
+          direction === "right" || direction === "left" ? true : false;
+        const currIndex = shiftingLeftOrRight ? i * 4 + j : j * 4 + i;
+        const currIndex2 = j * 4 + i;
         let alreadyAdded = 0;
-        let steps = -1;
+        let stepsToMove = -1;
         fasterUpdatingIndexesToUpdate.current.forEach((indexAndValue) => {
           const [index, value] = indexAndValue.split(".").map(Number);
           if (index === currIndex) {
             switch (j) {
               case start:
-                steps = 0;
+                stepsToMove = 0;
                 alreadyAdded++;
                 numOfFilledSlotsBlockingThePath.unshift(value);
                 break;
@@ -196,11 +246,11 @@ function App() {
                   numOfFilledSlotsBlockingThePath.length === 1 &&
                   numOfFilledSlotsBlockingThePath[0] !== value
                 ) {
-                  steps = 0;
+                  stepsToMove = 0;
                   alreadyAdded++;
                   numOfFilledSlotsBlockingThePath.unshift(value);
                 } else {
-                  steps = 1;
+                  stepsToMove = 1;
                   alreadyAdded++;
                   if (numOfFilledSlotsBlockingThePath.length === 0) {
                     numOfFilledSlotsBlockingThePath.unshift(value);
@@ -213,26 +263,26 @@ function App() {
               case start + step + step:
                 if (numOfFilledSlotsBlockingThePath.length === 2) {
                   if (numOfFilledSlotsBlockingThePath[0] !== value) {
-                    steps = 0;
+                    stepsToMove = 0;
                     alreadyAdded++;
                     numOfFilledSlotsBlockingThePath.unshift(value);
                   } else {
-                    steps = 1;
+                    stepsToMove = 1;
                     alreadyAdded++;
                     numOfFilledSlotsBlockingThePath[0] = value * 2 + 0.1;
                   }
                 } else if (numOfFilledSlotsBlockingThePath.length === 1) {
                   if (numOfFilledSlotsBlockingThePath[0] !== value) {
-                    steps = 1;
+                    stepsToMove = 1;
                     alreadyAdded++;
                     numOfFilledSlotsBlockingThePath.unshift(value);
                   } else {
-                    steps = 2;
+                    stepsToMove = 2;
                     alreadyAdded++;
                     numOfFilledSlotsBlockingThePath[0] = value * 2 + 0.1;
                   }
                 } else {
-                  steps = 2;
+                  stepsToMove = 2;
                   alreadyAdded++;
                   numOfFilledSlotsBlockingThePath.unshift(value);
                 }
@@ -241,30 +291,30 @@ function App() {
               case end:
                 if (numOfFilledSlotsBlockingThePath.length === 3) {
                   if (numOfFilledSlotsBlockingThePath[0] !== value) {
-                    steps = 0;
+                    stepsToMove = 0;
                     alreadyAdded++;
                   } else {
-                    steps = 1;
+                    stepsToMove = 1;
                     alreadyAdded++;
                   }
                 } else if (numOfFilledSlotsBlockingThePath.length === 2) {
                   if (numOfFilledSlotsBlockingThePath[0] === value) {
-                    steps = 2;
+                    stepsToMove = 2;
                     alreadyAdded++;
                   } else {
-                    steps = 1;
+                    stepsToMove = 1;
                     alreadyAdded++;
                   }
                 } else if (numOfFilledSlotsBlockingThePath.length === 1) {
                   if (numOfFilledSlotsBlockingThePath[0] === value) {
-                    steps = 3;
+                    stepsToMove = 3;
                     alreadyAdded++;
                   } else {
-                    steps = 2;
+                    stepsToMove = 2;
                     alreadyAdded++;
                   }
                 } else {
-                  steps = 3;
+                  stepsToMove = 3;
                   alreadyAdded++;
                 }
                 break;
@@ -277,15 +327,11 @@ function App() {
         });
         if (alreadyAdded === 1) {
         } else if (alreadyAdded === 0) {
-          steps = 0;
+          stepsToMove = 0;
         } else {
           console.error("this shouldn't happen");
         }
-        if (isCountingDown) {
-          numOfStepsToMoveForEachPosition.unshift(steps);
-        } else {
-          numOfStepsToMoveForEachPosition.push(steps);
-        }
+        numOfStepsToMoveForEachPosition[currIndex] = stepsToMove;
       }
     }
     numOfMovesToBeMade.current = [...numOfStepsToMoveForEachPosition];
@@ -316,7 +362,7 @@ function App() {
       innerDiv.style.height = "100%";
       innerDiv.style.position = "absolute";
       innerDiv.style.zIndex = "1";
-      innerDiv.style.transition = "transform 0.5s ease";
+      innerDiv.style.transition = "transform 250ms ease";
       gridItems[index].appendChild(innerDiv);
     });
   }, [indexesToUpdate]);
